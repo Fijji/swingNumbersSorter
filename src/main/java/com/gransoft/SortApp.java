@@ -7,7 +7,6 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
-import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import java.awt.BorderLayout;
@@ -16,8 +15,10 @@ import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
+import java.awt.Graphics;
 import java.awt.Insets;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.Collections;
 import java.util.List;
@@ -33,11 +34,16 @@ public class SortApp {
     private final JFrame frame;
     private final JPanel introPanel;
     private final JTextField inputField;
-    private boolean sortDescending = true;
     private boolean hasDisplayedError = false;
     private List<Integer> numbers;
     private JButton sortButton;
     private JPanel sortPanel;
+    private JPanel numberButtonPanel;
+    private JPanel buttonPanel;
+    private boolean sortDescending = false;
+    private boolean isSortedOnce = false;
+    private int highlightIndex1 = -1;
+    private int highlightIndex2 = -1;
 
     public SortApp() {
         frame = new JFrame("Sort Application");
@@ -74,21 +80,23 @@ public class SortApp {
                 return;
             }
             generateRandomNumbers(numberCount);
-            showSortScreen();
+            isSortedOnce = false;
+            sortDescending = false;
+            showNumberButtonsScreen();
         } catch (NumberFormatException ex) {
             showErrorMessage("Please enter a valid number.");
         }
     }
 
-    private void showSortScreen() {
-        sortPanel = new JPanel();
+    private void showNumberButtonsScreen() {
+        numberButtonPanel = new JPanel();
         int columns = (numbers.size() + MAX_COLUMNS - 1) / MAX_COLUMNS;
-        sortPanel.setLayout(new GridLayout(MAX_COLUMNS, columns, 5, 5));
+        numberButtonPanel.setLayout(new GridLayout(MAX_COLUMNS, columns, 5, 5));
 
-        JPanel buttonPanel = createButtonPanel();
+        buttonPanel = createButtonPanel();
 
         JPanel mainPanel = new JPanel(new BorderLayout());
-        mainPanel.add(new JScrollPane(sortPanel), BorderLayout.CENTER);
+        mainPanel.add(new JScrollPane(numberButtonPanel), BorderLayout.CENTER);
         mainPanel.add(buttonPanel, BorderLayout.EAST);
 
         updateNumberLabels();
@@ -102,7 +110,10 @@ public class SortApp {
         panel.setPreferredSize(new Dimension(100, 100));
 
         sortButton = createButton("Sort", e -> new SortWorker().execute());
-        JButton resetButton = createButton("Reset", e -> showIntroScreen());
+        JButton resetButton = createButton("Reset", e -> {
+            sortDescending = false;
+            showIntroScreen();
+        });
 
         panel.add(sortButton);
         panel.add(resetButton);
@@ -125,34 +136,34 @@ public class SortApp {
     }
 
     private void updateNumberLabels() {
-        if (sortPanel == null) {
+        if (numberButtonPanel == null) {
             if (!hasDisplayedError) {
-                showErrorMessage("sortPanel is not initialized.");
+                showErrorMessage("numberButtonPanel is not initialized.");
                 hasDisplayedError = true;
             }
             return;
         }
         hasDisplayedError = false;
 
-        sortPanel.removeAll();
+        numberButtonPanel.removeAll();
         for (int number : numbers) {
-            JLabel label = createNumberLabel(number, false);
-            sortPanel.add(label);
+            JButton button = createNumberButton(number);
+            numberButtonPanel.add(button);
         }
         frame.revalidate();
         frame.repaint();
     }
 
-    private JLabel createNumberLabel(int number, boolean isSorted) {
-        JLabel label = new JLabel(String.valueOf(number), SwingConstants.CENTER);
-        label.setOpaque(true);
-        label.setBackground(isSorted ? Color.GRAY : Color.BLUE);
-        label.setForeground(Color.WHITE);
-        label.setPreferredSize(new Dimension(50, 30));
+    private JButton createNumberButton(int number) {
+        JButton button = new JButton(String.valueOf(number));
+        button.setOpaque(true);
+        button.setBackground(Color.BLUE);
+        button.setForeground(Color.WHITE);
+        button.setPreferredSize(new Dimension(50, 30));
 
-        label.addMouseListener(new java.awt.event.MouseAdapter() {
+        button.addMouseListener(new MouseAdapter() {
             @Override
-            public void mouseClicked(MouseEvent evt) {
+            public void mouseClicked(MouseEvent e) {
                 if (number <= THRESHOLD_VALUE) {
                     generateRandomNumbers(number);
                     updateNumberLabels();
@@ -161,7 +172,8 @@ public class SortApp {
                 }
             }
         });
-        return label;
+
+        return button;
     }
 
     private void showErrorMessage(String message) {
@@ -174,10 +186,57 @@ public class SortApp {
         frame.repaint();
     }
 
+    private class SortWorker extends SwingWorker<Void, Void> {
+
+        @Override
+        protected Void doInBackground() {
+            sortButton.setText("Sorting...");
+            sortButton.setEnabled(false);
+
+            if (!isSortedOnce) {
+                sortPanel = new JPanel() {
+                    @Override
+                    protected void paintComponent(Graphics g) {
+                        super.paintComponent(g);
+                        visualizeSort(g);
+                    }
+                };
+
+                frame.getContentPane().removeAll();
+                frame.getContentPane().add(new JScrollPane(sortPanel), BorderLayout.CENTER);
+                frame.getContentPane().add(buttonPanel, BorderLayout.EAST);
+                frame.revalidate();
+                frame.repaint();
+
+                quickSort(numbers, 0, numbers.size() - 1);
+                isSortedOnce = true;
+            } else {
+                Collections.reverse(numbers);
+            }
+
+            return null;
+        }
+
+        @Override
+        protected void done() {
+            frame.getContentPane().removeAll();
+            frame.getContentPane().add(new JScrollPane(numberButtonPanel), BorderLayout.CENTER);
+            frame.getContentPane().add(buttonPanel, BorderLayout.EAST);
+            updateNumberLabels();
+
+            if (!sortDescending) {
+                sortButton.setText("<html>Sort<br>Descending</html>");
+            } else {
+                sortButton.setText("<html>Sort<br>Ascending</html>");
+            }
+            sortDescending = !sortDescending;
+            sortButton.setEnabled(true);
+        }
+    }
+
     void quickSort(List<Integer> list, int low, int high) {
         if (low < high) {
             int pivotIndex = partition(list, low, high);
-            updateNumberLabelsWithSortedState(list, pivotIndex);
             try {
                 Thread.sleep(100);
             } catch (InterruptedException e) {
@@ -188,47 +247,50 @@ public class SortApp {
         }
     }
 
-    private void updateNumberLabelsWithSortedState(List<Integer> list, int pivotIndex) {
-        sortPanel.removeAll();
-        for (int i = 0; i < list.size(); i++) {
-            JLabel label = createNumberLabel(list.get(i), i <= pivotIndex);
-            sortPanel.add(label);
-        }
-        frame.revalidate();
-        frame.repaint();
-    }
-
     int partition(List<Integer> list, int low, int high) {
         int pivot = list.get(high);
         int i = low - 1;
         for (int j = low; j < high; j++) {
             if (list.get(j) <= pivot) {
+                highlightSwap(i + 1, j);
                 Collections.swap(list, ++i, j);
             }
         }
+        highlightSwap(i + 1, high);
         Collections.swap(list, i + 1, high);
         return i + 1;
     }
 
-    private class SortWorker extends SwingWorker<Void, Void> {
+    private void visualizeSort(Graphics g) {
+        if (numbers == null || numbers.isEmpty()) return;
 
-        @Override
-        protected Void doInBackground() {
-            sortButton.setText("Sorting...");
-            sortButton.setEnabled(false);
-            quickSort(numbers, 0, numbers.size() - 1);
-            if (!sortDescending) {
-                Collections.reverse(numbers);
+        int width = sortPanel.getWidth() / numbers.size();
+        int maxHeight = sortPanel.getHeight();
+
+        int maxValue = numbers.stream().max(Integer::compareTo).orElse(1);
+
+        for (int i = 0; i < numbers.size(); i++) {
+            int height = (int) ((double) numbers.get(i) / maxValue * maxHeight);
+            int x = i * width;
+            int y = maxHeight - height;
+
+            if (i == highlightIndex1 || i == highlightIndex2) {
+                g.setColor(Color.RED);
+            } else {
+                g.setColor(Color.BLUE);
             }
-            return null;
+            g.fillRect(x, y, width, height);
         }
+    }
 
-        @Override
-        protected void done() {
-            sortDescending = !sortDescending;
-            updateNumberLabels();
-            sortButton.setText("<html>Reverse<br>Sort</html>");
-            sortButton.setEnabled(true);
+    private void highlightSwap(int index1, int index2) {
+        highlightIndex1 = index1;
+        highlightIndex2 = index2;
+        sortPanel.repaint();
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
     }
 

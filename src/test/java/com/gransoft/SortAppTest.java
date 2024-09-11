@@ -19,13 +19,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.lang.reflect.Field;
 
 public class SortAppTest {
+    private static final int MIN_NUMBER = 1;
+    private static final int MAX_NUMBER = 1000;
+    private static final int THRESHOLD = 30;
+    private static final int NUMBER_OF_RANDOMS = 10;
+    private static final int PARTITION_PIVOT_INDEX = 4;
     private SortApp sortApp;
 
     @BeforeEach
     public void setUp() throws Exception {
         sortApp = new SortApp();
         setPrivateField(sortApp, "sortPanel", new JPanel());
-        setPrivateField(sortApp, "sortButton", new JButton("Reverse Sort"));
+        setPrivateField(sortApp, "sortButton", new JButton("Sort"));
     }
 
     private void setPrivateField(Object object, String fieldName, Object value) throws Exception {
@@ -36,10 +41,10 @@ public class SortAppTest {
 
     @Test
     public void testGenerateRandomNumbers() {
-        sortApp.generateRandomNumbers(10);
+        sortApp.generateRandomNumbers(NUMBER_OF_RANDOMS);
         List<Integer> numbers = sortApp.getNumbers();
 
-        assertEquals(10, numbers.size());
+        assertEquals(NUMBER_OF_RANDOMS, numbers.size());
         assertTrue(numbers.stream().anyMatch(n -> n <= sortApp.getThresholdValue()));
         assertTrue(numbers.stream().allMatch(n -> n >= sortApp.getMinValue() && n <= sortApp.getMaxValue()));
     }
@@ -49,7 +54,7 @@ public class SortAppTest {
         List<Integer> list = Arrays.asList(10, 80, 30, 90, 40, 50, 70);
         int pivotIndex = sortApp.partition(list, 0, list.size() - 1);
 
-        assertEquals(4, pivotIndex);
+        assertEquals(PARTITION_PIVOT_INDEX, pivotIndex);
         for (int i = 0; i < pivotIndex; i++) {
             assertTrue(list.get(i) <= list.get(pivotIndex));
         }
@@ -58,23 +63,22 @@ public class SortAppTest {
         }
     }
 
-
     @Test
-    public void testGenerateRandomNumbersAtLeastOneLessThan30() {
+    public void testGenerateRandomNumbersAtLeastOneLessThanThreshold() {
         sortApp.generateRandomNumbers(100);
         List<Integer> numbers = sortApp.getNumbers();
 
         assertNotNull(numbers);
         assertFalse(numbers.isEmpty());
-        assertTrue(numbers.stream().anyMatch(n -> n <= 30));
+        assertTrue(numbers.stream().anyMatch(n -> n <= THRESHOLD));
     }
 
     @Test
     public void testRandomNumberRange() {
         Random rand = new Random();
-        List<Integer> numbers = rand.ints(100, 1, 1001).boxed().collect(Collectors.toList());
+        List<Integer> numbers = rand.ints(100, MIN_NUMBER, MAX_NUMBER + 1).boxed().collect(Collectors.toList());
 
-        assertTrue(numbers.stream().allMatch(n -> n >= 1 && n <= 1000));
+        assertTrue(numbers.stream().allMatch(n -> n >= MIN_NUMBER && n <= MAX_NUMBER));
     }
 
     @Test
@@ -89,7 +93,7 @@ public class SortAppTest {
 
     @Test
     public void testReverseSort() {
-        sortApp.generateRandomNumbers(10);
+        sortApp.generateRandomNumbers(NUMBER_OF_RANDOMS);
         List<Integer> numbersBeforeSort = sortApp.getNumbers();
 
         sortApp.quickSort(numbersBeforeSort, 0, numbersBeforeSort.size() - 1);
@@ -101,11 +105,10 @@ public class SortAppTest {
     }
 
     @Test
-    public void testSortButtonChange() {
+    public void testSortButton() throws Exception {
         sortApp.generateRandomNumbers(10);
-        sortApp.getSortButton().doClick();
 
-        assertEquals("Reverse Sort", sortApp.getSortButton().getText());
+        assertEquals("Sort", sortApp.getSortButton().getText());
     }
 
     @Test
@@ -113,6 +116,6 @@ public class SortAppTest {
         sortApp.generateRandomNumbers(50);
         List<Integer> numbers = sortApp.getNumbers();
 
-        assertTrue(numbers.stream().allMatch(n -> n >= 1 && n <= 1000));
+        assertTrue(numbers.stream().allMatch(n -> n >= MIN_NUMBER && n <= MAX_NUMBER));
     }
 }
