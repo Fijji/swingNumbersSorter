@@ -158,7 +158,7 @@ public class SortApp {
         JButton button = new JButton(String.valueOf(number));
         button.setOpaque(true);
         button.setBackground(Color.BLUE);
-        button.setForeground(Color.WHITE);
+        button.setForeground(Color.RED);
         button.setPreferredSize(new Dimension(50, 30));
 
         button.addMouseListener(new MouseAdapter() {
